@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.poc.jrpatch">
+    <application android:label="JRPatch" android:hasCode="true">
+        <meta-data android:name="xposedminversion" android:value="53"/>
+        <meta-data android:name="xposeddescription"
+            android:value="joyrun: force AMap mock enable + hide mock flag"/>
+        <meta-data android:name="xposedscope" android:value="com.joyrunworld.app"/>
+    </application>
+</manifest>

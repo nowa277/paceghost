@@ -1,0 +1,133 @@
+# mockrunning 本地补丁: android.py mode=settings (华为 EMUI 无 cmd location 时的进程内注入通道)
+# 基线 commit: 8da3f09d0d58c7720b37d5e0df121a120c162c09
+# 应用: git -C refs/mockrunning apply ../../patches/mockrunning-android-settings-mode.patch (或直接覆盖 android.py)
+# 已有此补丁则无需再打; refs/ 整体不入库, 重新 clone 后要重放
+diff --git a/src/ios_location_controller/android.py b/src/ios_location_controller/android.py
+index 55a9dab..7b69be0 100644
+--- a/src/ios_location_controller/android.py
++++ b/src/ios_location_controller/android.py
+@@ -110,19 +110,25 @@ async def pair(address, code):
+ 
+ 
+ class AndroidDevice(LocationDevice):
++    # Patched build whose embedded Xposed module reads Settings.Global.jrpos and
++    # calls LocationManager.addTestProvider in-process. Needed on ROMs that ship
++    # no `cmd location` shell handler (Huawei EMUI and similar).
++    PACKAGE = "com.joyrunworld.app"
++
+     # Reuse the CLI route player; all actual device I/O is overridden here.
+     def __init__(self, udid=None, address=None, options=None):
+         self.udid = udid
+         self.address = endpoint(address) if address else None
+         self.providers = []
+         self.original_mode = None
++        self.mode = None
+         self.options = AndroidOptions.parse(options)
+         self.last_updates = {}
+         self.injections = {}
+ 
+     def diagnostics(self):
+         return {"horizontal_accuracy": True, "sensors": False, "raw_gnss": False,
+-                "mock": True, "options": asdict(self.options),
++                "mock": True, "mode": self.mode, "options": asdict(self.options),
+                 "injections": {name: dict(value) for name, value in self.injections.items()}}
+ 
+     async def shell(self, *args):
+@@ -142,16 +148,30 @@ class AndroidDevice(LocationDevice):
+         if await adb("-s", self.udid, "get-state") != "device":
+             raise RuntimeError("Android device is offline or unauthorized")
+         help_text = await self.shell("cmd", "location", "help")
+-        if "set-test-provider-location" not in help_text:
+-            raise RuntimeError("This Android ROM lacks ADB test-provider support (use Android 12+)")
+-        if await self.shell("cmd", "location", "is-location-enabled") != "true":
+-            raise RuntimeError("Android system location is disabled")
+-        mode = await self.shell("appops", "get", "com.android.shell", "android:mock_location")
+-        match = re.search(r"(?:MOCK_LOCATION|mock_location):\s*(allow|ignore|deny|default|foreground)", mode)
+-        if not match and "No operations" not in mode:
+-            raise RuntimeError("Cannot determine original mock-location permission")
+-        self.original_mode = match[1] if match else "default"
+-        await self.shell("appops", "set", "com.android.shell", "android:mock_location", "allow")
++        if "set-test-provider-location" in help_text:
++            self.mode = "testprovider"
++            if await self.shell("cmd", "location", "is-location-enabled") != "true":
++                raise RuntimeError("Android system location is disabled")
++            mode = await self.shell("appops", "get", "com.android.shell", "android:mock_location")
++            match = re.search(r"(?:MOCK_LOCATION|mock_location):\s*(allow|ignore|deny|default|foreground)", mode)
++            if not match and "No operations" not in mode:
++                raise RuntimeError("Cannot determine original mock-location permission")
++            self.original_mode = match[1] if match else "default"
++            await self.shell("appops", "set", "com.android.shell", "android:mock_location", "allow")
++            return
++        # No ADB test-provider handler on this ROM: fall back to the patched app,
++        # which performs addTestProvider inside its own process.
++        await self._connect_via_app()
++
++    async def _connect_via_app(self):
++        if self.PACKAGE not in await self.shell("pm", "list", "packages"):
++            raise RuntimeError(
++                "This ROM has no ADB test-provider support, and the patched app is not "
++                "installed (expected " + self.PACKAGE + ")")
++        await self.shell("appops", "set", self.PACKAGE, "android:mock_location", "allow")
++        await self.shell("settings", "put", "global", "jrgps_feed", "1")
++        self.mode = "settings"
++        self.original_mode = "default"
+ 
+     async def set_route_point(self, point):
+         return await self.set_point(point, force=False)
+@@ -162,6 +182,13 @@ class AndroidDevice(LocationDevice):
+             raise ValueError("Invalid coordinates")
+         if self.original_mode is None:
+             raise RuntimeError("Android is not connected")
++        if self.mode == "settings":
++            await self.shell("settings", "put", "global", "jrpos",
++                             f"{lat:.8f},{lon:.8f},{self.options.gps_accuracy}")
++            self.last_updates["app"] = time.monotonic()
++            self.injections["gps"] = {"lat": lat, "lng": lon,
++                                      "accuracy_m": self.options.gps_accuracy}
++            return True
+         now = time.monotonic()
+         selected = ("gps", "network") if self.options.provider == "both" else (self.options.provider,)
+         sent = False
+@@ -171,7 +198,7 @@ class AndroidDevice(LocationDevice):
+                     and now - self.last_updates[provider] < self.options.network_interval):
+                 continue
+             if provider not in self.providers:
+-                await self.shell("cmd", "location", "providers", "add-test-provider", provider)
++                await self.shell("cmd", "location", "providers", "add-test-provider", provider, "--requiresSatellite", "--supportsAltitude", "--supportsSpeed", "--supportsBearing")
+                 self.providers.append(provider)
+                 await self.shell("cmd", "location", "providers", "set-test-provider-enabled", provider, "true")
+             accuracy = getattr(self.options, provider + "_accuracy")
+@@ -183,6 +210,20 @@ class AndroidDevice(LocationDevice):
+         return sent
+ 
+     async def clear(self, existing=False):
++        if self.mode == "settings":
++            errors = []
++            for args in (("settings", "put", "global", "jrgps_feed", "0"),
++                         ("settings", "delete", "global", "jrpos")):
++                try:
++                    await self.shell(*args)
++                except Exception as exc:
++                    errors.append(str(exc))
++            self.last_updates.pop("app", None)
++            self.injections.pop("gps", None)
++            if errors:
++                raise RuntimeError("Android cleanup failed; reconnect to restore location: "
++                                   + "; ".join(errors))
++            return
+         if existing:
+             # Explicit CLI recovery also clears providers left by a previous run.
+             self.providers = list(dict.fromkeys(self.providers + ["gps", "network"]))
+@@ -200,9 +241,10 @@ class AndroidDevice(LocationDevice):
+ 
+     async def close(self):
+         await self.clear()
+-        if self.original_mode is not None:
++        if self.original_mode is not None and self.mode != "settings":
+             await self.shell("appops", "set", "com.android.shell", "android:mock_location", self.original_mode)
+-            self.original_mode = None
++        self.original_mode = None
++        self.mode = None
+ 
+     async def read_location(self):
+         raise RuntimeError("Android displays sent coordinates only, not real GPS readback")

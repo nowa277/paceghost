@@ -1,0 +1,39 @@
+# 重量级产物与二进制: 本地留存, 不入库
+apk/
+decompiled/
+decompiled_jadx/
+dec_v2/
+frida/
+capture/
+logs/
+work/
+tools/
+refs/
+# LSPatch 构建产物
+lsp/out/
+lsp/out2/
+lsp/out3/
+lsp/out4/
+lsp/out-*/
+lsp/lspatch.jar
+lsp/sign-*.jks
+lsp/module/*.apk
+lsp/module/*.idsig
+lsp/module/build4/
+lsp/module/build/
+lsp/module/dexout/
+lsp/module/dexout2/
+lsp/module/dexout4/
+lsp/module/classes.dex
+lsp/module/module.keystore
+lsp/module/stubs.jar
+lsp/module/assets/face.jpg
+# 会话/编辑器元数据与临时文件
+.zcode/
+.workbuddy-ai/
+scripts/__pycache__/
+*.log
+*.flow
+*.bak
+# 逆向过程截图 (会话产物)
+shots/
