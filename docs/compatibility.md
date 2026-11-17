@@ -10,7 +10,7 @@
 |---|---|---|---|---|---|---|---|---|
 | vivo | vivo V2278A / Funtouch OS 13 | 13 (SDK 33) | 10CD9D0FR0001JD | testprovider | 1080x2388 | 8765 | 192.168.1.137:5555 | 可用 |
 | huawei | 华为 CDY-AN00 / EMUI 10 | 10 (SDK 29) | MKB4C20611016287 | settings | 1080x2400 | 8766 | 192.168.1.173:5555 | 可用 |
-| honor | 荣耀 DNP-AN00 / MagicOS | 16 (SDK 36) | AHHSUT5519008815 | auto (实测待回填) | 1264x2736 | 8767 | 不通 (见坑 #6c) | 待验证 |
+| honor | 荣耀 DNP-AN00 / MagicOS | 16 (SDK 36) | AHHSUT5519008815 | testprovider (实测确认) | 1264x2736 | 8767 | 校园网不通 (坑 #6c); 家里同网段可达 | 注入链路已验证 / 端到端待白天复测 |
 
 登记事实源: devices.json:3-29。
 
@@ -49,7 +49,8 @@
 ### #6 荣耀 DNP-AN00 / Android 16 (SDK 36) 四项实测 — 已固化
 - (a) logcat 反复报 com.bytedance.apm `protocol TLSv1 is not supported`, 无害。外部机制佐证: Android 15 起 Conscrypt 对 targetSdk>=35 应用禁用 TLS 1.0/1.1 (source.android.com/docs/core/ota/modular-system/conscrypt; developer.android.com/about/versions/15/behavior-changes-15), Android 16 行为变更无新增 TLS 条目 (developer.android.com/about/versions/16/behavior-changes-all) → 归因置信度中。
 - (b) 「系统繁忙」是服务端 msg 原样弹出, 非客户端 bug: base.apk 2129 entry 0 命中, v9 补丁包 0 命中, libapp.so UTF-8/UTF-16 0 命中; 对照组 加载失败=33 / 网络异常=11 / 重试=47。
-- (c) 连校园网 GDMU-UNICOM (172.17.x) 与 PC (192.168.1.x) 异网段 → WiFi adb 永远不可达, 只能 USB (devices.json:23)。
+- (c) 在学校连校园网 GDMU-UNICOM (172.17.x) 与 PC (192.168.1.x) 异网段 → WiFi adb 不可达, 只能 USB (devices.json:23)。**仅限学校场景**: 在家里连 192.168.1.x 同网段 (实测 192.168.1.144), `joyrun_wifi.sh --enable honor` 可开 WiFi adb【待验证-实测】。
+- (e) 2026-11-18 凌晨实测: 注入链路本身全通 (connect → mode=testprovider → state=playing, gps provider 收到 mock 坐标, status 里 injections 持续更新); 运动页「加载失败 + 系统繁忙」toast 为服务端拒绝 —— 设备时间 01:27 在服务端跑步窗口 (06:00-23:00) 外, 设备移动数据 VALIDATED 网络正常, 与坑 #6b「服务端 msg 原样弹出」一致。端到端「定位中→可开始」待白天窗口内复测。
 - (d) 首次拉起时运动页「定位中」是 jrpos/jrgps_feed 均为 null (注入未配置), 不是故障。
 - 附加 (官方资料, 置信度高): MagicOS 省电策略会停掉后台运动类定位, 需对该 app 关闭电池优化/多任务加锁 (honor.com 官方支持文档 honor.com/cn/support/content/zh-cn00428704/) → 荣耀长跑前检查此项【待验证-实机必要性】。
 
@@ -59,6 +60,16 @@
 
 ### #8 app 本地持久化近乎为空 — 已固化
 - 悦跑本体 shared_prefs 仅一个 65B 空 `<map/>` (3687895362eff697723e1121c5aa9355.xml) + 大量广告 SDK prefs; 「累计跑步 xx 公里」等数据均为服务端返回, 本地无状态可改。
+
+### #9 MagicOS 自动拆除 adb test provider, mockrunning 注入循环无容错 — 待修复
+- 2026-11-18 凌晨 honor 实测两次拆除: 01:11:43 (add 后 17s) 与 01:27:04 (add 后 168s); 两次拆除均伴随 com.hihonor.lbs (uid 1000, 荣耀系统 LBS) 的「模拟位置」告警通知在 3-5ms 后被撤销 (notification_canceled reason=8, 通知 flags=ONGOING|AUTO_CANCEL|actions=1, 发出时刻=add 后 ~30ms)。
+- 拆除方是系统侧, 排除法: GpsFeed 未激活 (jrgps_feed=null, jrpatch.log 无 gpsfeed 行, GpsFeed.java:85 条件不满足); mockrunning 自身 clear 只在 stop/close 路径 (android.py:233); shell 注入循环只调 set-test-provider-location。
+- 触发条件未钉死【待验证】: 两次拆除都发生在「app 进入新的定位场景」时 (启动 onResume 后 0.3s / 切运动页地图后 0.1s); 对照组: app 停留在已渲染页面时 provider 存活 40s~5min+ (受控实验: 重连后不碰手机 40s 无拆除; adb input tap 后也无拆除 —— 注入式输入不是触发条件); LBS 服务自身持续消费 mock 位置 (HnNLPPositionManager update gps location ... mock) 却不拆除。无固定周期, 非纯定时器。
+- 后果: mockrunning testprovider 注入循环 (playback.py:251-256) 遇 `gps provider is not a test provider` 即 state=error → _close_device → 断开, 整条链路死。
+- 缓解/修复选项 (按推荐序):
+  1. PC 侧看门狗: 轮询 8767 status, state=error 时自动重新 connect+start (零 mockrunning 改动, 对任何拆除原因都兜底, 代价是每次拆除有几秒注入空窗)。
+  2. 强制 settings 模式: GpsFeed 每拍 `!gpsReady && ensureProvider()` 自愈重挂 (GpsFeed.java:153), 被拆 200ms 内恢复; 但 mockrunning connect() 只按 `cmd location help` 探测无强制入口 (android.py:151), 需加 env 开关或 connect 参数 (改 mockrunning ~3 行); MagicOS 是否同样清理 app 进程内 provider 未知【待验证】。
+- 无害观察: 注入的 Location 的 et 显示为设备 uptime (+17d), 是 shell 构造 Location 的 elapsedRealtimeNanos 缺省 0 所致, vivo 同代码路径端到端已验证不受影响。
 
 ## 3. 资料佐证 (外部检索, 2026-11-17)
 
@@ -71,6 +82,8 @@
 
 ## 4. 待办
 
-1. honor: 设备上线后执行 `scripts/joyrun_switch.sh honor --start`, 验证「定位中」→ 可开始; 回填 mode 实测值, 矩阵行状态改"可用"。
-2. joyrun_wifi.sh 视需要固化坑 #3 的 kill-server 自愈。
-3. 新机型接入统一走 scripts/joyrun_new_device.sh, 接入后回填本矩阵。
+1. honor 端到端复测: 白天窗口内 (06:00-23:00) 执行 `scripts/joyrun_switch.sh honor --start`, 验证运动页「定位中」→ 可开始 → 真跑一段; 同时观察坑 #9 的拆除是否再现。
+2. 决策坑 #9 修复路线: PC 看门狗 (推荐, 零改动) vs 强制 settings 模式 (需改 mockrunning ~3 行)。
+3. honor 在家时 `joyrun_wifi.sh --enable honor` 开 WiFi adb, 回填 devices.json wifi 字段【待验证】。
+4. joyrun_wifi.sh 视需要固化坑 #3 的 kill-server 自愈。
+5. 新机型接入统一走 scripts/joyrun_new_device.sh, 接入后回填本矩阵。

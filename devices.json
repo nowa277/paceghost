@@ -22,7 +22,7 @@
     "serial": "AHHSUT5519008815",
     "wifi": null,
     "port": 8767,
-    "mode": "auto",
+    "mode": "testprovider",
     "cadence": 131,
     "speed_kmh": 13.33,
     "face": "/home/sesley/Workspace/paceghost/work/face/face_src.png"
