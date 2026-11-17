@@ -10,7 +10,7 @@
 |---|---|---|---|---|---|---|---|---|
 | vivo | vivo V2278A / Funtouch OS 13 | 13 (SDK 33) | 10CD9D0FR0001JD | testprovider | 1080x2388 | 8765 | 192.168.1.137:5555 | 可用 |
 | huawei | 华为 CDY-AN00 / EMUI 10 | 10 (SDK 29) | MKB4C20611016287 | settings | 1080x2400 | 8766 | 192.168.1.173:5555 | 可用 |
-| honor | 荣耀 DNP-AN00 / MagicOS | 16 (SDK 36) | AHHSUT5519008815 | testprovider (实测确认) | 1264x2736 | 8767 | 校园网不通 (坑 #6c); 家里同网段可达 | **端到端已验证** (定位中→开始跑步亮蓝, 2026-11-18 02:10) |
+| honor | 荣耀 DNP-AN00 / MagicOS | 16 (SDK 36) | AHHSUT5519008815 | testprovider (实测确认) | 1264x2736 | 8767 | **WiFi adb 已开通** (家里 192.168.1.144:5555; 校园网仍不通, 坑 #6c) | **端到端已验证** (定位中→开始跑步亮蓝, USB/WiFi 双通道) |
 
 登记事实源: devices.json:3-29。
 
@@ -49,7 +49,7 @@
 ### #6 荣耀 DNP-AN00 / Android 16 (SDK 36) 四项实测 — 已固化
 - (a) logcat 反复报 com.bytedance.apm `protocol TLSv1 is not supported`, 无害。外部机制佐证: Android 15 起 Conscrypt 对 targetSdk>=35 应用禁用 TLS 1.0/1.1 (source.android.com/docs/core/ota/modular-system/conscrypt; developer.android.com/about/versions/15/behavior-changes-15), Android 16 行为变更无新增 TLS 条目 (developer.android.com/about/versions/16/behavior-changes-all) → 归因置信度中。
 - (b) 「系统繁忙」是服务端 msg 原样弹出, 非客户端 bug: base.apk 2129 entry 0 命中, v9 补丁包 0 命中, libapp.so UTF-8/UTF-16 0 命中; 对照组 加载失败=33 / 网络异常=11 / 重试=47。
-- (c) 在学校连校园网 GDMU-UNICOM (172.17.x) 与 PC (192.168.1.x) 异网段 → WiFi adb 不可达, 只能 USB (devices.json:23)。**仅限学校场景**: 在家里连 192.168.1.x 同网段 (实测 192.168.1.144), `joyrun_wifi.sh --enable honor` 可开 WiFi adb【待验证-实测】。
+- (c) 在学校连校园网 GDMU-UNICOM (172.17.x) 与 PC (192.168.1.x) 异网段 → WiFi adb 不可达, 只能 USB (devices.json:23)。**仅限学校场景**: 在家已实测开通 WiFi adb (2026-11-18, tcpip 5555 + kill-server 自愈 + connect 192.168.1.144:5555, devices.json wifi 已登记, RS 经 WiFi 地址 connect mode=testprovider 成功); 回学校后此通道失效, 恢复 USB-only。
 - (e) 2026-11-18 凌晨实测: 注入链路全通 (connect → mode=testprovider → state=playing, gps provider 收到 mock 坐标)。~~「加载失败+系统繁忙」为窗口外拒绝~~ **修正**: 真实根因是该机 app 从未登录 (见坑 #10); 用户完成登录后数据全部恢复, 注入开启后运动页 GPS 亮三格、蓝点落操场、「开始跑步」亮蓝 (02:10 截图确认)。「定位中」灰按钮在注入停止时是预期状态, 非故障。
 - (d) 首次拉起时运动页「定位中」是 jrpos/jrgps_feed 均为 null (注入未配置), 不是故障。
 - 附加 (官方资料, 置信度高): MagicOS 省电策略会停掉后台运动类定位, 需对该 app 关闭电池优化/多任务加锁 (honor.com 官方支持文档 honor.com/cn/support/content/zh-cn00428704/) → 荣耀长跑前检查此项【待验证-实机必要性】。
@@ -91,6 +91,6 @@
 1. honor 真跑验证: 06:00 窗口后真跑一段确认记录有效 (端到端按钮验证已于 02:10 完成); 同时观察坑 #9 的拆除是否再现。
 2. 决策坑 #9 修复路线: PC 看门狗 (推荐, 零改动) vs 强制 settings 模式 (需改 mockrunning ~3 行)。
 3. joyrun_new_device.sh 增加登录校验步骤 (坑 #10)。
-4. honor 在家时 `joyrun_wifi.sh --enable honor` 开 WiFi adb, 回填 devices.json wifi 字段【待验证】。
+4. ~~honor 开 WiFi adb~~ 已完成 (2026-11-18, 家里 192.168.1.144:5555, RS WiFi 通道实测通过); 回学校后恢复 USB-only。
 5. joyrun_wifi.sh 视需要固化坑 #3 的 kill-server 自愈。
 6. 新机型接入统一走 scripts/joyrun_new_device.sh, 接入后回填本矩阵。

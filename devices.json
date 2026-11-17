@@ -20,7 +20,7 @@
   },
   "honor": {
     "serial": "AHHSUT5519008815",
-    "wifi": null,
+    "wifi": "192.168.1.144:5555",
     "port": 8767,
     "mode": "testprovider",
     "cadence": 131,
