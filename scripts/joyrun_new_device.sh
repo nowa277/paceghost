@@ -50,6 +50,8 @@ adb -s "$SER" shell "pm grant $PKG android.permission.ACCESS_FINE_LOCATION" 2>/d
 adb -s "$SER" shell "pm grant $PKG android.permission.ACCESS_COARSE_LOCATION" 2>/dev/null || true
 adb -s "$SER" shell "pm grant $PKG android.permission.ACTIVITY_RECOGNITION" 2>/dev/null || true
 adb -s "$SER" shell "appops set $PKG android:mock_location allow" >/dev/null
+# vivo 类 ROM 在 WiFi adb 重连后定位总开关会被重置, 无条件补开 (幂等); 华为 cmd location 被裁剪会报非零, 吞错防止 set -e 中断
+adb -s "$SER" shell "cmd location set-location-enabled true" >/dev/null 2>&1 || true
 adb -s "$SER" shell "settings put global jrstep_cadence 131" >/dev/null
 adb -s "$SER" shell "settings put global jrstep_on 1" >/dev/null
 echo "[2/6] 权限/appop/计步参数 ok"

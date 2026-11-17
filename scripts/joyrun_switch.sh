@@ -42,6 +42,8 @@ done
 
 # 2) 设备预置: mock appop / 计步参数 / 清上一轮注入残留
 adb -s "$TARGET" shell "appops set $PKG android:mock_location allow" >/dev/null
+# vivo 类 ROM 在 WiFi adb 重连后定位总开关会被重置, 无条件补开 (幂等); 华为 cmd location 被裁剪会报非零, 吞错防止 set -e 中断
+adb -s "$TARGET" shell "cmd location set-location-enabled true" >/dev/null 2>&1 || true
 adb -s "$TARGET" shell "settings put global jrstep_cadence $CAD" >/dev/null
 adb -s "$TARGET" shell "settings put global jrstep_on 1" >/dev/null
 adb -s "$TARGET" shell "settings put global jrgps_feed 0" >/dev/null 2>&1 || true
