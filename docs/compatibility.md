@@ -10,7 +10,7 @@
 |---|---|---|---|---|---|---|---|---|
 | vivo | vivo V2278A / Funtouch OS 13 | 13 (SDK 33) | 10CD9D0FR0001JD | testprovider | 1080x2388 | 8765 | 192.168.1.137:5555 | 可用 |
 | huawei | 华为 CDY-AN00 / EMUI 10 | 10 (SDK 29) | MKB4C20611016287 | settings | 1080x2400 | 8766 | 192.168.1.173:5555 | 可用 |
-| honor | 荣耀 DNP-AN00 / MagicOS | 16 (SDK 36) | AHHSUT5519008815 | testprovider (实测确认) | 1264x2736 | 8767 | 校园网不通 (坑 #6c); 家里同网段可达 | 注入链路已验证 / 端到端待白天复测 |
+| honor | 荣耀 DNP-AN00 / MagicOS | 16 (SDK 36) | AHHSUT5519008815 | testprovider (实测确认) | 1264x2736 | 8767 | 校园网不通 (坑 #6c); 家里同网段可达 | **端到端已验证** (定位中→开始跑步亮蓝, 2026-11-18 02:10) |
 
 登记事实源: devices.json:3-29。
 
@@ -50,7 +50,7 @@
 - (a) logcat 反复报 com.bytedance.apm `protocol TLSv1 is not supported`, 无害。外部机制佐证: Android 15 起 Conscrypt 对 targetSdk>=35 应用禁用 TLS 1.0/1.1 (source.android.com/docs/core/ota/modular-system/conscrypt; developer.android.com/about/versions/15/behavior-changes-15), Android 16 行为变更无新增 TLS 条目 (developer.android.com/about/versions/16/behavior-changes-all) → 归因置信度中。
 - (b) 「系统繁忙」是服务端 msg 原样弹出, 非客户端 bug: base.apk 2129 entry 0 命中, v9 补丁包 0 命中, libapp.so UTF-8/UTF-16 0 命中; 对照组 加载失败=33 / 网络异常=11 / 重试=47。
 - (c) 在学校连校园网 GDMU-UNICOM (172.17.x) 与 PC (192.168.1.x) 异网段 → WiFi adb 不可达, 只能 USB (devices.json:23)。**仅限学校场景**: 在家里连 192.168.1.x 同网段 (实测 192.168.1.144), `joyrun_wifi.sh --enable honor` 可开 WiFi adb【待验证-实测】。
-- (e) 2026-11-18 凌晨实测: 注入链路本身全通 (connect → mode=testprovider → state=playing, gps provider 收到 mock 坐标, status 里 injections 持续更新); 运动页「加载失败 + 系统繁忙」toast 为服务端拒绝 —— 设备时间 01:27 在服务端跑步窗口 (06:00-23:00) 外, 设备移动数据 VALIDATED 网络正常, 与坑 #6b「服务端 msg 原样弹出」一致。端到端「定位中→可开始」待白天窗口内复测。
+- (e) 2026-11-18 凌晨实测: 注入链路全通 (connect → mode=testprovider → state=playing, gps provider 收到 mock 坐标)。~~「加载失败+系统繁忙」为窗口外拒绝~~ **修正**: 真实根因是该机 app 从未登录 (见坑 #10); 用户完成登录后数据全部恢复, 注入开启后运动页 GPS 亮三格、蓝点落操场、「开始跑步」亮蓝 (02:10 截图确认)。「定位中」灰按钮在注入停止时是预期状态, 非故障。
 - (d) 首次拉起时运动页「定位中」是 jrpos/jrgps_feed 均为 null (注入未配置), 不是故障。
 - 附加 (官方资料, 置信度高): MagicOS 省电策略会停掉后台运动类定位, 需对该 app 关闭电池优化/多任务加锁 (honor.com 官方支持文档 honor.com/cn/support/content/zh-cn00428704/) → 荣耀长跑前检查此项【待验证-实机必要性】。
 
@@ -71,6 +71,12 @@
   2. 强制 settings 模式: GpsFeed 每拍 `!gpsReady && ensureProvider()` 自愈重挂 (GpsFeed.java:153), 被拆 200ms 内恢复; 但 mockrunning connect() 只按 `cmd location help` 探测无强制入口 (android.py:151), 需加 env 开关或 connect 参数 (改 mockrunning ~3 行); MagicOS 是否同样清理 app 进程内 provider 未知【待验证】。
 - 无害观察: 注入的 Location 的 et 显示为设备 uptime (+17d), 是 shell 构造 Location 的 elapsedRealtimeNanos 缺省 0 所致, vivo 同代码路径端到端已验证不受影响。
 
+### #10 新机装完补丁包 ≠ 有登录态: 未登录时全页面「加载失败+系统繁忙」— 已固化 (onboarding 检查项)
+- 2026-11-18 荣耀实锤: app 全新安装后未完成登录 → 首页/运动页数据请求全被服务端拒 (加载失败 + toast 系统繁忙), 我的页顶部用户信息永久转圈, 跑步记录看不到; 与跑步窗口无关 (同账号同时刻在 vivo 上一切正常)。
+- 取证方法 (可复用): `settings put global jrdiag 1` + 重启 app → pull diag.txt → 检查 **FlutterSharedPreferences / FlutterSecureStorage 是否存在** (160 个 prefs 全是广告 SDK = 未登录), cookieStore 无 joyrunworld.cn 会话。登录后这些文件生成, 数据恢复。取证完记得 `jrdiag 0`。
+- 注意: app 的 Dart 层网络不走系统代理, mitm 抓不到 joyrunworld API (vivo 时代 150 条 flow 亦无 joyrunworld), 别再走抓包弯路。
+- 待固化: joyrun_new_device.sh 应加登录校验步骤 (diag 法查 Flutter prefs), 未登录时提示用户先登录。
+
 ## 3. 资料佐证 (外部检索, 2026-11-17)
 
 - tcpip 5555 非持久化, 手机重启后复位; Android 11+ 无线调试开关随 WiFi 断开自动关 (置信度高) → 与 joyrun_wifi.sh:44-51 的 USB 自愈逻辑吻合。
@@ -82,8 +88,9 @@
 
 ## 4. 待办
 
-1. honor 端到端复测: 白天窗口内 (06:00-23:00) 执行 `scripts/joyrun_switch.sh honor --start`, 验证运动页「定位中」→ 可开始 → 真跑一段; 同时观察坑 #9 的拆除是否再现。
+1. honor 真跑验证: 06:00 窗口后真跑一段确认记录有效 (端到端按钮验证已于 02:10 完成); 同时观察坑 #9 的拆除是否再现。
 2. 决策坑 #9 修复路线: PC 看门狗 (推荐, 零改动) vs 强制 settings 模式 (需改 mockrunning ~3 行)。
-3. honor 在家时 `joyrun_wifi.sh --enable honor` 开 WiFi adb, 回填 devices.json wifi 字段【待验证】。
-4. joyrun_wifi.sh 视需要固化坑 #3 的 kill-server 自愈。
-5. 新机型接入统一走 scripts/joyrun_new_device.sh, 接入后回填本矩阵。
+3. joyrun_new_device.sh 增加登录校验步骤 (坑 #10)。
+4. honor 在家时 `joyrun_wifi.sh --enable honor` 开 WiFi adb, 回填 devices.json wifi 字段【待验证】。
+5. joyrun_wifi.sh 视需要固化坑 #3 的 kill-server 自愈。
+6. 新机型接入统一走 scripts/joyrun_new_device.sh, 接入后回填本矩阵。
