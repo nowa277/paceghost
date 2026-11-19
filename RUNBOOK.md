@@ -27,6 +27,20 @@ adb -s <序列号> shell "cat /sdcard/Android/data/com.joyrunworld.app/files/jrp
 ```
 脚本做全套: 停所有实例播放 → 目标机预置 (appop / `jrstep_cadence=131` / 清 `jrgps_feed`+`jrpos` 残留) → 推人脸图 → 对应端口 `/api/connect` + settings 整包。设备不在线则不动任何东西。
 输出 `mode=settings|testprovider` 即注入方式确认。
+**多机同跑用 `joyrun_up.sh`** (见 §0.6), 不要用 `joyrun_switch.sh`。
+
+## 0.6 整体链路一键启动 (推荐日常入口)
+```bash
+cd /home/sesley/Workspace/paceghost
+scripts/joyrun_up.sh                  # 所有在线已登记设备: 起 WebUI + RS + 预置 + 连接 + 参数 + 守卫 + 注入
+scripts/joyrun_up.sh huawei           # 只处理 nova7
+scripts/joyrun_up.sh vivo huawei      # 多机同跑 (互不干扰)
+scripts/joyrun_up.sh huawei --no-start   # 预置连接好, 但不开注入 (留给 RS 页手动点)
+scripts/joyrun_down.sh [别名...]      # 对称停止: 守卫+注入+断连 (playing 时只停守卫)
+```
+自动处理: adb server 陈旧句柄 (`no permissions` 自愈) / WebUI 未启动 / RS 实例未 enable /
+换机后预置缺失 / 实例绑着已拔死设备 (自动 rs-restart 重连) / 正在跑的实例 (跳过, 不动)。
+启动后浏览器开 http://127.0.0.1:8800 看多机总览, 或直接进 RS 页点「开始移动」。
 
 ## 1. Route Studio (每设备一实例)
 ```bash
