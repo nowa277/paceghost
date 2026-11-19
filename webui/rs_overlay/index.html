@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Route Studio · iOS / Android 定位控制</title>
+  <link rel="stylesheet" href="/static/leaflet.css"><link rel="stylesheet" href="/static/app.css">
+  <script defer src="/static/leaflet.js"></script><script defer src="/static/app.js"></script><script defer src="/static/pg_scan.js"></script><script defer src="/static/pg_sensor.js"></script>
+</head>
+<body>
+  <header><div><span class="eyebrow">LOCAL / iOS LOCATION CONTROLLER</span><h1>Route Studio<span>路线工作台</span></h1></div><span id="service" class="badge">连接本地服务…</span></header>
+  <nav aria-label="工作流程"><button id="tab-editor" class="active" aria-selected="true">01 <b>布设路线</b><small>编辑节点 · 导出 GPX</small></button><button id="tab-player" aria-selected="false">02 <b>手机回放</b><small>导入路线 · 设置参数 · 控制定位</small></button></nav>
+  <main>
+    <section class="map-wrap"><div id="map" aria-label="路线地图"></div><div class="map-note" id="map-note">单击添加节点 · 拖动节点调整 · 节点弹窗可删除</div><div id="map-warning" role="status" hidden></div><div class="map-tools"><button id="fit">查看整条路线</button><button id="locate-phone" title="定位到最近成功发送给手机的模拟坐标">定位到手机</button><label><input type="checkbox" id="follow">跟随模拟位置</label></div></section>
+    <aside>
+      <section id="editor-panel">
+        <div class="section-heading"><span>01 / ROUTE BUILDER</span><h2>在地图上布设路线</h2><p>每次点击添加一个运行节点，按编号顺序连线。编辑操作不会改变手机定位。</p></div>
+        <label>路线名称<input id="route-name" value="我的路线" maxlength="100"></label>
+        <div class="metrics"><div><strong id="node-count">0</strong><span>节点</span></div><div><strong id="route-distance">0 m</strong><span>路线长度</span></div></div>
+        <div class="row"><button id="undo">撤销上一个节点</button><button id="clear">清空路线</button></div>
+        <details><summary>通过坐标添加节点</summary><div class="row"><label>纬度<input id="node-lat" type="number" min="-85" max="85" step="any" value="31.2304"></label><label>经度<input id="node-lng" type="number" min="-180" max="180" step="any" value="121.4737"></label></div><button id="add-coordinate">添加坐标节点</button></details>
+        <div class="row"><button id="editor-import">导入 GPX 编辑</button><button id="export" class="primary">导出 GPX</button></div>
+        <button id="use-route" class="wide">将当前路线载入手机回放 →</button>
+        <input type="file" id="editor-file" accept=".gpx" hidden>
+        <p class="hint">草稿自动保存在此浏览器。导出文件为 WGS84 坐标，连线为节点间直线，不会自动沿道路规划。</p>
+        <ol id="nodes" aria-label="运行节点"></ol>
+      </section>
+      <section id="player-panel" hidden>
+        <div class="section-heading"><span>02 / DEVICE PLAYBACK</span><h2>在手机上回放</h2><p>支持 iOS / Android，USB / 无线。连接手机并导入数据后，自动设置到起点。</p></div>
+        <fieldset id="connection-options" hidden><legend>连接方式</legend>
+          <label>平台<select id="platform"><option value="ios">iPhone / iOS</option><option value="android" selected>Android</option></select></label>
+          <label>传输<select id="transport"><option value="auto" selected>已发现设备（USB / Wi-Fi）</option><option value="wireless">无线地址</option></select></label>
+          <div id="ios-wireless" hidden><label>RSD IP 地址<input id="rsd-host" placeholder="fd00::1" maxlength="100"></label><label>RSD 端口<input id="rsd-port" type="number" min="1" max="65535"></label><small>连接已建立的可信 Wi-Fi RSD 隧道；隧道须持续运行。首次配对通常需要 USB。</small></div>
+          <div id="android-wireless" hidden><label>无线调试地址<input id="adb-address" placeholder="192.168.1.20:37123" maxlength="100"></label><details><summary>首次无线配对（Android 11+）</summary><label>配对地址<input id="pair-address" placeholder="192.168.1.20:配对端口" maxlength="100"></label><label>六位配对码<input id="pair-code" type="password" inputmode="numeric" autocomplete="off" maxlength="6"></label><button id="pair-device" type="button">配对设备</button><small>配对端口与连接端口不同，配对码不会保存。</small></details></div>
+          <p class="hint" id="connection-help">iPhone 需要已信任电脑且开发者服务可用。</p>
+          <div id="android-test-options" hidden>
+            <label>测试定位源<select id="android-provider"><option value="gps">仅 GPS（保留真实 network）</option><option value="network">仅 network（保留真实 GPS）</option><option value="both">GPS + network 测试源</option></select></label>
+            <div class="row"><label>GPS hAcc / m<input id="gps-accuracy" type="number" min="0.1" max="10000" step="any" value="5"></label><label>network hAcc / m<input id="network-accuracy" type="number" min="0.1" max="10000" step="any" value="50"></label></div>
+            <label>network 更新间隔 / s<input id="network-interval" type="number" min="0.1" max="60" step="any" value="5"></label>
+            <small>精度是显式测试参数，不是真实测量。双源使用同一条测试路线，但精度与更新节奏独立；未替换的真实源可能与测试坐标冲突。</small>
+          </div>
+        </fieldset>
+        <p class="hint" id="capability-help" role="status">当前连接只模拟定位，不改写陀螺仪、加速度计或卫星原始数据。</p>
+        <p class="hint" id="injection-status" role="status"></p>
+        <div class="device-card"><b id="device-state">尚未连接定位服务</b><select id="devices" aria-label="选择手机"><option value="">正在检测 USB 设备…</option></select><div class="row"><button id="connect" class="primary">连接手机</button><button id="disconnect">断开连接</button></div><small id="device-help">USB 发现与定位服务连接是两个不同状态。</small></div>
+        <section class="pg-scan-card" id="pg-scan"><b>USB 设备扫描<span class="pg-sub">paceghost · 含已开 USB 调试的 USB / Wi-Fi 设备</span></b><div class="pg-toolbar"><button id="pg-scan-btn" type="button">扫描设备</button><label class="pg-auto"><input type="checkbox" id="pg-scan-auto"> 自动 5s</label><span id="pg-scan-status" class="pg-status"></span></div><ul id="pg-scan-list" aria-label="扫描到的设备"><li class="pg-empty">加载中…</li></ul><small id="pg-scan-hint">扫描由 paceghost WebUI 提供：python3 -m webui.main --port 8800。点“连接”用本实例连接该设备（自动探测注入模式）；点“人脸”上传新图，裁成 1080x1920 后推送（已登记设备自动归档到 devices.json）。</small></section>
+        <section class="pg-scan-card" id="pg-sensor"><b>传感器配置<span class="pg-sub">paceghost · 由运动参数自动推导</span></b><div class="pg-grid"><span class="mk">步频 cadence</span><span class="mv" id="pg-cadence">—</span><span class="mk">步幅 stride</span><span class="mv" id="pg-stride">—</span><span class="mk">步数合成</span><span class="mv">jrstep_on=1</span><span class="mk">定位测试源</span><span class="mv" id="pg-lp">—</span></div><label class="pg-auto" style="margin-top:8px">身高 cm<input id="pg-height" type="number" min="120" max="220" step="1" value="175" style="width:70px;margin-top:0"></label><div class="pg-toolbar"><button id="pg-cadence-apply" type="button" class="primary">应用步频到设备</button><span id="pg-sensor-status" class="pg-status"></span></div><small>推导: cadence = 速度 ÷ (身高/100) × (1 + 左右摆动增益)。摆动增益 ≈ 左右波动 m ÷ 50 (锚点: 1.5m → +3%, 实测 13.33km/h@175cm → 127→131)。修改运动参数自动重算；应用后写入 jrstep_cadence 并同步 devices.json。</small></section>
+        <div class="row"><button id="player-import">导入 GPX 数据</button><span id="loaded-route">未载入路线</span></div><p class="pg-locked-hint" id="pg-locked-hint"></p><button id="clear-loaded-route" class="danger wide" type="button">清空已载入路线</button><input type="file" id="player-file" accept=".gpx" hidden>
+        <section class="place-card"><b>输入地点并切换定位</b><div class="row"><input id="place-query" placeholder="例如：上海人民广场" maxlength="200"><button id="place-search">搜索</button></div><select id="place-results" aria-label="地点搜索结果"><option value="">搜索结果会显示在这里</option></select><button id="place-switch" class="primary wide" disabled>切换到选中地点</button><small>搜索结果来自 OpenStreetMap。切换不会修改路线；运行路线时请先暂停或停止。</small></section>
+        <form id="settings"><fieldset id="parameters"><legend>运动参数</legend>
+          <div class="row"><label>速度 km/h<input name="speed_kmh" id="speed" type="number" min="0.1" max="300" step="any" value="5" required></label><label>配速 min/km<input id="pace" type="number" min="0.2" max="600" step="any" value="12" required></label></div>
+          <div class="row"><label>速度波动 ±%<input name="speed_variation_pct" type="number" min="0" max="80" step="any" value="10" required></label><label>左右波动 m<input name="lateral_variation_m" type="number" min="0" max="20" step="any" value="1" required></label></div>
+          <div class="row"><label>波动周期 s<input name="variation_period" type="number" min="2" max="120" step="any" value="12" required></label><label>定位更新间隔 s<input name="interval" type="number" min="0.1" max="10" step="any" value="1" required></label></div>
+          <label>随机种子（相同参数可复现）<input name="random_seed" type="number" min="0" max="2147483647" step="1" value="42" required></label>
+          <label class="check"><input name="loop" type="checkbox">循环路线（终点返回起点，非闭合路线会跳转）</label>
+          <button type="submit" id="apply">保存参数</button>
+        </fieldset></form>
+        <p class="hint">运动中参数锁定；暂停后可调整并继续。随机种子在重新开始时生效。波动仅用于定位测试，不代表真实人体运动。</p>
+        <div class="transport"><button id="start" class="primary">开始移动</button><button id="pause">暂停</button><button id="stop" class="danger">停止并清除模拟</button></div>
+        <div class="telemetry"><div class="row"><b id="play-state">未开始</b><span id="live-speed">0 km/h</span></div><progress id="progress" max="100" value="0"></progress><span id="position">尚未发送模拟坐标</span><small id="progress-text">0 m · 0 s</small></div>
+        <p class="hint">橙色圆点显示最近成功发送的模拟坐标，不是从手机读回的 GPS。完成后停留终点，停止或断开会请求恢复真实定位。</p>
+      </section>
+    </aside>
+  </main>
+  <footer><span id="message" role="status" aria-live="polite">准备就绪</span><span>WGS84 / GPX 1.1</span></footer>
+</body></html>
