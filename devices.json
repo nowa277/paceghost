@@ -1,5 +1,4 @@
 {
-  "_说明": "校园跑设备登记表。新设备: USB 插上后跑 scripts/joyrun_new_device.sh <别名>, 自动登记+开WiFi。serial=USB序列号, wifi=IP:5555 (可空), port=该设备专属 Route Studio 实例端口",
   "vivo": {
     "serial": "10CD9D0FR0001JD",
     "wifi": "192.168.1.137:5555",
@@ -7,7 +6,8 @@
     "mode": "testprovider",
     "cadence": 131,
     "speed_kmh": 13.33,
-    "face": "/home/sesley/Workspace/paceghost/work/face/csj_v1.png"
+    "face": "/home/sesley/Workspace/paceghost/work/face/csj_v1_ui_20261118223554.png",
+    "jrdevice": ""
   },
   "huawei": {
     "serial": "MKB4C20611016287",
@@ -16,7 +16,8 @@
     "mode": "settings",
     "cadence": 131,
     "speed_kmh": 13.33,
-    "face": "/home/sesley/Workspace/paceghost/work/face/yhj_v1.png"
+    "face": "/home/sesley/Workspace/paceghost/work/face/yhj_v1_ui_20261118214550.png",
+    "jrdevice": ""
   },
   "honor": {
     "serial": "AHHSUT5519008815",
@@ -25,6 +26,7 @@
     "mode": "testprovider",
     "cadence": 131,
     "speed_kmh": 13.33,
-    "face": "/home/sesley/Workspace/paceghost/work/face/face_src.png"
+    "face": "/home/sesley/Workspace/paceghost/work/face/face_src.png",
+    "jrdevice": ""
   }
 }

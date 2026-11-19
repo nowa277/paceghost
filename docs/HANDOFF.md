@@ -32,7 +32,7 @@
 - D = 虚拟机兜底 (最弱: k/a isEmulator 查 FINGERPRINT, 免 root 改不了 prop)
 - **A/B 共同风险**: security_plus 扫 /proc/self/maps 里 frida 字符串 → agent 必须改名
 
-## 3. 本地检测点地图 (静态实证, 全表见 PHASE1_STATIC_MAP.md)
+## 3. 本地检测点地图 (静态实证, 全表见 docs/PHASE1_STATIC_MAP.md)
 | 检测项 | 位置 | 手段 |
 |---|---|---|
 | root + frida + 模拟器 + 开发者模式 + **mock location** | 自研 Flutter 插件, smali 类 **`k/a`** (MethodChannel **"security_plus"**, GeneratedPluginRegistrant 注册) | isRooted: su 路径×10 + RootBeer(libtoolChecker.so) + /proc/self/maps 扫 frida-gadget/agent/server/helper/magisk/magiskd; isEmulator: Build FINGERPRINT/BRAND/MODEL 指纹串; **isMockLocationEnabled: 遍历 getAllProviders 查 "gps"+"network" provider 的 `android:mock_location` 属性 + AppOps (不是 12+ allowed_mock_location_apps 新 API!)**; isDevelopmentModeEnable: ro.debuggable + development_settings_enabled |
@@ -80,9 +80,9 @@ c) frida hook getAllProviders 过滤属性。
 - `frida/frida-server-17.24.3-android-arm64` — 84MB, 已解压已 +x (PC frida-tools 同版本 17.24.3)
 - `frida/shizuku-v13.6.0.apk` — 待装手机 (v13 系走 Android 13 AIDL 路线)
 - `capture/` — 抓包 flow 放这
-- `ON_RETURN.sh` — 回家开抓一键脚本 (adb reverse 8080 走 USB → 设手机全局代理 → mitmdump -w flow)
-- `ON_RETURN_stop.sh` — 停 mitm + 清代理 + 导 HAR
-- `PHASE1_STATIC_MAP.md` — 阶段一静态地图全文 (含 8 条待验证清单)
+- `scripts/ON_RETURN.sh` — 回家开抓一键脚本 (adb reverse 8080 走 USB → 设手机全局代理 → mitmdump -w flow)
+- `scripts/ON_RETURN_stop.sh` — 停 mitm + 清代理 + 导 HAR
+- `docs/PHASE1_STATIC_MAP.md` — 阶段一静态地图全文 (含 8 条待验证清单)
 - mitmproxy/frida-tools 已装 (uv tool)
 
 ## 8. 下一步 (按序, 下个对话直接干)

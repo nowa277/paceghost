@@ -37,3 +37,8 @@ scripts/__pycache__/
 *.bak
 # 逆向过程截图 (会话产物)
 shots/
+
+# WebUI 运行产物
+webui/__pycache__/
+webui/logs/
+devices.json.bak-*

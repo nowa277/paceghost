@@ -56,7 +56,7 @@
 
 ### #7 目标 app 接口清单 (从 libapp.so 抠出) — 已固化
 - base https://apiapp.joyrunworld.cn; 核心端点: /sch/run/checkUnFinish、/sch/run/checkRunUpperLimit、/sch/run/start、/sch/run/finish、/sch/run/faceDetect、/sch/student/baseInfo、/sch/student/local/query、/sch/student/bind、/sys/semester/list、/sys/school/list 等。
-- 全集见 HANDOFF.md:50-58。
+- 全集见 docs/HANDOFF.md:50-58。
 
 ### #8 app 本地持久化近乎为空 — 已固化
 - 悦跑本体 shared_prefs 仅一个 65B 空 `<map/>` (3687895362eff697723e1121c5aa9355.xml) + 大量广告 SDK prefs; 「累计跑步 xx 公里」等数据均为服务端返回, 本地无状态可改。

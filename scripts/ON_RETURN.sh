@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # 悦跑世界 · 回家开工 runbook (手机 USB 插上后跑)
-# 用法: bash ~/Workspace/paceghost/ON_RETURN.sh
+# 用法: bash ~/Workspace/paceghost/scripts/ON_RETURN.sh
 set -u
 S=10CD9D0FR0001JD
 Y=/home/sesley/Workspace/paceghost
@@ -37,5 +37,5 @@ cat <<EOF
  2. 开始一次真实跑步(正常速度跑300米~1公里即可, 别刷圈)
  3. 跑完点结束, 等上传完
  4. 再开第二次(间隔几秒的连续上报才对比得出字段变化)
- 5. 回来喊我, 我跑: bash $Y/ON_RETURN_stop.sh 然后读 flow
+ 5. 回来喊我, 我跑: bash $Y/scripts/ON_RETURN_stop.sh 然后读 flow
 EOF

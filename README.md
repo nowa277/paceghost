@@ -3,7 +3,7 @@
 真跑打卡一条龙: Route Studio 喂模拟 GPS 播放路线 + LSPatch 模块合成计步/顶替人脸。
 **换设备 = 一条命令, 新设备 = USB 插一次以后只走 WiFi。**
 
-运行手册见 [RUNBOOK.md](RUNBOOK.md) (细节全在里面); 交接分析笔记见 HANDOFF*.md。
+运行手册见 [RUNBOOK.md](RUNBOOK.md) (细节全在里面); 交接分析笔记见 docs/HANDOFF*.md。
 
 ## 目录
 
